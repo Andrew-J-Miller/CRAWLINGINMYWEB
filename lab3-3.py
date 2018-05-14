@@ -1,14 +1,10 @@
+#Lab3-3.py | This is a master python script for a distrubuted web crawler using WorkQueue 
+#Submission for Lab3 part 3 as part of Advanced Computer Arch
+#Grant Kalfus and Andrew Miller
+# May 13 2018
 
-#!/usr/bin/env cctools_python
-# CCTOOLS_PYTHON_VERSION 2.7 2.6
-
-# Copyright (c) 2010- The University of Notre Dame.
-# This software is distributed under the GNU General Public License.
-# See the file COPYING for details.
-
-# This program is a very simple example of how to use Work Queue.
-# It accepts a list of files on the command line.
-# Each file is compressed with gzip and returned to the user.
+#This is the master file for a distrubuted web crawler that takes a link and how many pages deep to grab links from 
+#as paramters.
 
 from work_queue import *
 
@@ -24,12 +20,8 @@ if __name__ == '__main__':
     print "The given link will be webcrawled 'depth' deep"
     sys.exit(1)
 
-  # Usually, we can execute the gzip utility by simply typing its name at a
-  # terminal. However, this is not enough for work queue; we have to
-  # specify precisely which files need to be transmitted to the workers. We
-  # record the location of gzip in 'gzip_path', which is usually found in
-  # /bin/gzip or /usr/bin/gzip.
-
+  #The script that will be passed to the workers is called crawl.py; it takes a given link, finds all links on the page,
+  #then returns them as a text file. This checks to see if the script is in a couple of known directories. 
   script_path = "home/ec2-user/webcrawl/CRAWLINGINMYWEB/crawl.py"
   if not os.path.exists(script_path):
     script_path = "./crawl.py"
@@ -37,54 +29,56 @@ if __name__ == '__main__':
         print "crawl.py was not found. Please modify the script_path variable accordingly."       
         sys.exit(1);
 
-  # We create the tasks queue using the default port. If this port is already
-  # been used by another program, you can try setting port = 0 to use an
-  # available port.
+  # We create the tasks queue using the default port. If that port is in use, it can be changed by the user.
   try:
       q = WorkQueue(port)
   except:
       print "Instantiation of Work Queue failed!"
       sys.exit(1)
 
+      
   print "listening on port %d..." % q.port
+  
+  #Gets the link from the list of arguments
   link = sys.argv[1] 
   
-  #Preparing for first time run; 
+  #Preparing for first time run in likely the worst way possible 
   depth = int(sys.argv[2])
-  dep_str = "all_links.txt"
+  dep_str = "%d_depth%d.txt" % (depth, 0)
   dep_file = open(dep_str, "w+")
   dep_file.write("%s\n" % link)
   dep_file.close()
+  
+  #Variable to keep track of how many text files are returned
   count = 0 
-  # We create and dispatch a task for each filename given in the argument list
+  #For however many depths the user defined...
   for i in range(0, depth):
-      #dep_file = "%s_depth%d.txt" % (sys.argv[i], i)
-
-      # Note that we write ./gzip here, to guarantee that the gzip version we
-      # are using is the one being sent to the workers.
-
+    #Open a file containing all the links to give to the workers
     with open(dep_str, "r") as dep_file:
       for line in dep_file:
+        #Remove the newline from the link
         link = line.strip('\n')
+        
+        #Create an output file where all found links will be placed
         outfile = "output_%d.txt" % count
+        
+        #Incr count to keep files distinct
         count += 1
+        
+        #Format the command to corrispond to given link
         command = "python ./crawl.py %s %s" % (link, outfile)
 
+        #Create the task from the given command
         t = Task(command)
 
-      # gzip is the same across all tasks, so we can cache it in the workers.
-      # Note that when specifying a file, we have to name its local name
-      # (e.g. gzip_path), and its remote name (e.g. "gzip"). Unlike the
-      # following line, more often than not these are the same.
+        #Since the same script is running for all iterations, we allow 
+        #the workers to cache the file to speed up future iterations
         t.specify_file(script_path, "crawl.py", WORK_QUEUE_INPUT, cache=True)
-
-      # files to be compressed are different across all tasks, so we do not
-      # cache them. This is, of course, application specific. Sometimes you may
-      # want to cache an output file if is the input of a later task.
-    
+      
+        #Since all output files will be different, we do not want them to be cached
         t.specify_file(outfile, outfile, WORK_QUEUE_OUTPUT, cache=False)
 
-      # Once all files has been specified, we are ready to submit the task to the queue.
+        #Once we are done preparing the file, we submit it to the queue
         taskid = q.submit(t)
         print "submitted task (id# %d): %s" % (taskid, t.command)
 
@@ -96,10 +90,10 @@ if __name__ == '__main__':
           print "task (id# %d) complete: %s (return code %d)" % (t.id, t.command, t.return_status)
           if t.return_status != 0:
             None
-    
+    #These loops take all the generated output files and merges them down to a single file containing all links
     #Opens the file where all the links of the current depth are to be kept
-    
-    with open(dep_str, "w") as dep_file:
+    dep_str = "%d_depth%d.txt" % (depth, i)
+    with open(dep_str, "w+") as dep_file:
       #For all of the returned files,
       for j in range(0, count):
         #Try to open a returned file
@@ -113,9 +107,8 @@ if __name__ == '__main__':
         #If the file could not be opened or deleted, move on to the next file
         except:
           continue
-    #dep_str = "%d_depth%d.txt" % (depth, i + 1)
+    
     count = 0
   print "all tasks complete!"
-
-  #work queue object will be garbage collected by Python automatically when it goes out of scope
+  
   sys.exit(1)

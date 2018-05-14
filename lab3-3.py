@@ -19,9 +19,9 @@ import sys
 if __name__ == '__main__':
   port = WORK_QUEUE_DEFAULT_PORT
 
-  if len(sys.argv) < 2:
-    print "work_queue_example <file1> [file2] [file3] ..."
-    print "Each file given on the command line will be compressed using a remote worker."
+  if len(sys.argv) < 3:
+    print "For arguments, please pass in: lab3-3.py link depth"
+    print "The given link will be webcrawled 'depth' deep"
     sys.exit(1)
 
   # Usually, we can execute the gzip utility by simply typing its name at a
@@ -51,23 +51,23 @@ if __name__ == '__main__':
   
   #Preparing for first time run; 
   depth = int(sys.argv[2])
-  dep_str = "%d_depth0.txt" % depth
+  dep_str = "all_links.txt"
   dep_file = open(dep_str, "w+")
   dep_file.write("%s\n" % link)
   dep_file.close()
-
-  
+  count = 0 
   # We create and dispatch a task for each filename given in the argument list
-  for i in range(0, depth)):
+  for i in range(0, depth):
       #dep_file = "%s_depth%d.txt" % (sys.argv[i], i)
 
       # Note that we write ./gzip here, to guarantee that the gzip version we
       # are using is the one being sent to the workers.
 
-    with open(dep_str, "w+") as dep_file:
+    with open(dep_str, "r") as dep_file:
       for line in dep_file:
         link = line.strip('\n')
         outfile = "output_%d.txt" % count
+        count += 1
         command = "python ./crawl.py %s %s" % (link, outfile)
 
         t = Task(command)
@@ -98,22 +98,23 @@ if __name__ == '__main__':
             None
     
     #Opens the file where all the links of the current depth are to be kept
+    
     with open(dep_str, "w") as dep_file:
       #For all of the returned files,
-      for i in range(0, count)
+      for j in range(0, count):
         #Try to open a returned file
         try:
-          with open("output_%d.txt" % i) as retfile:
+          with open("output_%d.txt" % j) as retfile:
             #If the returned file was opened, append all the links to the depth file 
             for line in retfile:
               dep_file.write(line)
           #remove the returned file
-          os.remove("output_%d.txt" % i)
+          os.remove("output_%d.txt" % j)
         #If the file could not be opened or deleted, move on to the next file
         except:
           continue
-  dep_file = "%d_depth%d.txt" % (depth, i)   
-  count = 0
+    #dep_str = "%d_depth%d.txt" % (depth, i + 1)
+    count = 0
   print "all tasks complete!"
 
   #work queue object will be garbage collected by Python automatically when it goes out of scope
